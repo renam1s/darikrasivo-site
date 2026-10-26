@@ -139,6 +139,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .lb-x{align-self:flex-end;padding:8px 14px}
 .hint{font-size:13px;color:var(--muted);margin:12px 0 0}
 [hidden]{display:none!important}
+.search{margin:0 0 14px}.search input{width:100%;max-width:420px;padding:12px 14px;border:1px solid #d9cde6;border-radius:10px;font:inherit;background:#fff}
 </style>
 </head>
 <body>
@@ -169,6 +170,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 <main>
   <section class="wrap" id="catalog">
     <h2 class="sr">Каталог</h2>
+    <div class="search"><input type="search" id="q" placeholder="Поиск по названию" aria-label="Поиск по названию" autocomplete="off"></div>
     <div class="chips" id="chips" role="group" aria-label="Разделы каталога"></div>
     <div class="grid" id="grid"></div>
   </section>
@@ -176,8 +178,17 @@ button,input,select,textarea{font:inherit;color:inherit}
   <section class="sec" id="about"><div class="wrap cols">
     <h2>О магазине</h2>
     <div class="text">
-      <p>«Дари Красиво» — салон цветов, шаров и подарков в Иркутске, в Октябрьском районе, в минуте ходьбы от остановки «Карла Либкнехта».</p>
-      <p>У нас можно выбрать букеты, цветочные композиции, подарочные наборы, сладкие букеты, воздушные шары и комнатные растения. Букеты готовим по предоплате: оформите заказ на сайте, мы свяжемся с вами, уточним детали и пришлём ссылку для оплаты.</p>
+      <p>Салон цветов, шаров, подарков и товаров для праздника «Дари Красиво».</p>
+      <p>Всегда в наличии:</p>
+      <ul style="margin:0 0 .9em;padding-left:1.2em">
+        <li>свежие цветы, букеты и композиции;</li>
+        <li>большой выбор воздушных шаров, на любой праздник;</li>
+        <li>мягкие игрушки;</li>
+        <li>хлопушки, свечи для торта, открытки, подарочные пакеты, гирлянды и пр.;</li>
+        <li>салюты, фейерверки, римские свечи, петарды;</li>
+        <li>подарочные наборы, предметы интерьера, свечи.</li>
+      </ul>
+      <p>Заботимся о том, чтобы Ваши дорогие и любимые люди остались довольны!</p>
     </div>
   </div></section>
 
@@ -349,7 +360,7 @@ function plural(n){var a=n%10,b=n%100;if(a===1&&b!==11)return 'товар';if(a>
 function setQty(id,q){orderDone=false;if(q<=0)delete cart[id];else cart[id]=q;clean();save();refresh()}
 
 /* ---------- Каталог ---------- */
-var activeCat='Все',limit=48;
+var activeCat='Все',limit=48,query='';
 function cats(){
   var seen={};PRODUCTS.forEach(function(p){seen[p.cat]=1});
   var known=CAT_ORDER.filter(function(c){return seen[c]});
@@ -368,8 +379,8 @@ function renderChips(){
 }
 function renderGrid(){
   var grid=$('#grid');grid.textContent='';
-  var items=PRODUCTS.filter(function(p){return activeCat==='Все'||p.cat===activeCat});
-  if(!items.length){grid.appendChild(el('p','empty',loadState==='loading'?'Загружаем каталог…':loadState==='error'?'Не удалось загрузить каталог. Обновите страницу или напишите нам в мессенджер.':'В этом разделе пока ничего нет.'));return}
+  var items=PRODUCTS.filter(function(p){return (activeCat==='Все'||p.cat===activeCat)&&(!query||p.name.toLowerCase().indexOf(query)>-1)});
+  if(!items.length){grid.appendChild(el('p','empty',loadState==='loading'?'Загружаем каталог…':query?'Ничего не нашли. Попробуйте другое слово или сбросьте поиск.':loadState==='error'?'Не удалось загрузить каталог. Обновите страницу или напишите нам в мессенджер.':'В этом разделе пока ничего нет.'));return}
   var more=items.length>limit;items=items.slice(0,limit);
   items.forEach(function(p){
     var card=el('article','card');
@@ -506,6 +517,8 @@ $('#copy').addEventListener('click',function(){
 
 /* ---------- Старт ---------- */
 renderChips();renderGrid();refresh();
+
+$('#q').addEventListener('input',function(){query=this.value.trim().toLowerCase();limit=48;renderGrid()});
 
 /* ---------- Каталог из ВК (если функция отвечает; иначе остаются товары из файла) ---------- */
 fetch('/.netlify/functions/catalog').then(function(r){return r.json()}).then(function(d){
