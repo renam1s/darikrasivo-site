@@ -1,5 +1,6 @@
 // Каталог из фотоальбомов группы ВК «Дари красиво».
-// Название товара в подписях не пишется, там только цена, поэтому товар = фото + цена + раздел (альбом).
+// В подписи фото: цена и, если хозяйка пишет, название перед ценой («Нежность, 1500₽»). Без названия товар называется «Арт. 123456».
+// Скрыть товар: добавить в подпись «#нет» или «нет в наличии».
 // Переменные Netlify: VK_TOKEN (сервисный ключ приложения), VK_GROUP_ID (число, без минуса).
 const API = 'https://api.vk.com/method/';
 const V = '5.199';
@@ -38,6 +39,27 @@ function parsePrice(text) {
   return n >= 50 && n <= 200000 ? n : null;
 }
 
+// Название: текст в подписи перед ценой, например «Нежность, 1500₽». Если названия нет, вернём пустую строку.
+function parseName(text) {
+  if (!text) return '';
+  const t = String(text);
+  const m = t.match(/(\d{1,3}(?:[ \u00a0]\d{3})+|\d+)/);
+  if (!m) return '';
+  const before = t.slice(0, m.index).replace(/[\s,;:.\-–—«»"'|/\\]+$/g, '').replace(/^[\s,;:.\-–—«»"'|/\\]+/g, '').trim();
+  if (before.length < 3 || before.length > 70 || !/[А-Яа-яA-Za-z]/.test(before)) return '';
+  return before.charAt(0).toUpperCase() + before.slice(1);
+}
+
+// Скрыть товар: в подписи фото есть «#нет», «#скрыть» или «нет в наличии».
+function isHidden(text) {
+  return /(#нет|#скрыть|нет в наличии)/i.test(String(text || ''));
+}
+
+function pickBig(sizes) {
+  const by = {}; (sizes || []).forEach(s => { by[s.type] = s.url; });
+  return by.z || by.y || by.x || by.r || '';
+}
+
 function pickImg(sizes) {
   const by = {}; (sizes || []).forEach(s => { by[s.type] = s.url; });
   return by.x || by.r || by.y || by.z || by.base || (sizes && sizes.length ? sizes[sizes.length - 1].url : '');
@@ -59,18 +81,21 @@ exports.handler = async () => {
 
     const products = [];
     let skipped = 0;
+    let hidden = 0;
     for (const a of albums) {
       for (let offset = 0; offset < 3000; offset += 1000) {
         const r = await call('photos.get', { owner_id: owner, album_id: a.id, count: 1000, offset, rev: 1 });
         for (const ph of r.items || []) {
+          if (isHidden(ph.text)) { hidden++; continue; } // хозяйка скрыла товар пометкой в подписи
           const price = parsePrice(ph.text);
           if (price === null) { skipped++; continue; } // без цены в подписи не показываем
           products.push({
             id: 'p' + ph.id,
-            name: 'Арт. ' + String(ph.id).slice(-6),
+            name: parseName(ph.text) || 'Арт. ' + String(ph.id).slice(-6),
             price,
             cat: a.title,
             img: pickImg(ph.sizes),
+            big: pickBig(ph.sizes),
             link: 'https://vk.ru/photo-' + group + '_' + ph.id
           });
         }
@@ -87,10 +112,12 @@ exports.handler = async () => {
         'Cache-Control': 'public, max-age=60',
         'Netlify-CDN-Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
       },
-      body: JSON.stringify({ products, albums: albums.map(a => a.title), total: products.length, skippedNoPrice: skipped })
+      body: JSON.stringify({ products, albums: albums.map(a => a.title), total: products.length, skippedNoPrice: skipped, hiddenByMark: hidden })
     };
   } catch (e) {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: e.message, vk: e.vk || null }) };
   }
 };
 exports.parsePrice = parsePrice;
+exports.parseName = parseName;
+exports.isHidden = isHidden;
