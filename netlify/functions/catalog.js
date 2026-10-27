@@ -30,30 +30,70 @@ async function call(method, params, tries = 3) {
   }
 }
 
-// Цена: первое число в подписи (подпись пишет человек: «900₽», «850», «1300 руб. к1930 ...»).
-function parsePrice(text) {
-  if (!text) return null;
-  const m = String(text).match(/(\d{1,3}(?:[ \u00a0]\d{3})+|\d+)/);
-  if (!m) return null;
-  const n = Number(m[1].replace(/[ \u00a0]/g, ''));
-  return n >= 50 && n <= 200000 ? n : null;
+// ---------- Разбор подписи к фото ----------
+// Формат подписи, который понимает сайт (достаточно такого):
+//   Букет из белых хризантем и зелени в коробочке
+//   900 руб.
+//   к1844
+// Название стоит перед ценой, цена с «руб.», «р.» или «₽», артикул вида «к1844».
+// Скрыть товар: добавить в подпись «#нет» или «нет в наличии».
+const MIN_PRICE = 50, MAX_PRICE = 300000;
+const NUM = '(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)';
+const PRICE_WITH_CUR = new RegExp(NUM + '\\s*(?:₽|руб[а-яё]*\\.?|р(?![а-яё]))', 'i');
+const SKU_K = /(^|[\s(])([кk]\s?\d{3,6})(?![0-9A-Za-zА-Яа-яЁё])/i;
+const SKU_ART = /(^|[\s(])арт(?:икул)?\.?\s*[№#]?\s*([0-9A-Za-zА-Яа-я-]{2,12})/i;
+const HIDE_RE = /(#нет|#скрыть|нет в наличии)/i;
+
+function toNumber(str) { return Number(String(str).replace(/[ \u00a0]/g, '')); }
+
+function cleanName(before) {
+  const t = String(before || '')
+    .replace(/#\S+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s,;:.\-–—«»"'|/\\]+$/g, '')
+    .replace(/^[\s,;:.\-–—«»"'|/\\]+/g, '')
+    .trim();
+  if (t.length < 3 || t.length > 80 || !/[А-Яа-яA-Za-z]/.test(t)) return '';
+  if (/^(цена|стоимость|цена актуальна.*)$/i.test(t)) return '';
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-// Название: текст в подписи перед ценой, например «Нежность, 1500₽». Если названия нет, вернём пустую строку.
-function parseName(text) {
-  if (!text) return '';
-  const t = String(text);
-  const m = t.match(/(\d{1,3}(?:[ \u00a0]\d{3})+|\d+)/);
-  if (!m) return '';
-  const before = t.slice(0, m.index).replace(/[\s,;:.\-–—«»"'|/\\]+$/g, '').replace(/^[\s,;:.\-–—«»"'|/\\]+/g, '').trim();
-  if (before.length < 3 || before.length > 70 || !/[А-Яа-яA-Za-z]/.test(before)) return '';
-  return before.charAt(0).toUpperCase() + before.slice(1);
+// Возвращает {price, name, sku, hidden}. price = null, если цены в подписи нет.
+function parseCaption(text) {
+  const out = { price: null, name: '', sku: '', hidden: false };
+  let work = String(text || '').replace(/\u00a0/g, ' ');
+  if (!work.trim()) return out;
+  out.hidden = HIDE_RE.test(work);
+  work = work.replace(HIDE_RE, ' ');
+
+  // артикул вырезаем, чтобы его цифры не приняли за цену
+  let m = work.match(SKU_K);
+  if (m) { out.sku = m[2].replace(/\s/g, '').toLowerCase(); work = work.replace(m[0], m[1] + ' '); }
+  else {
+    m = work.match(SKU_ART);
+    if (m) { out.sku = m[2]; work = work.replace(m[0], m[1] + ' '); }
+  }
+
+  // цена: число рядом с ₽ / руб. / р., иначе последнее подходящее число
+  let priceIdx = -1;
+  m = work.match(PRICE_WITH_CUR);
+  if (m && toNumber(m[1]) >= MIN_PRICE && toNumber(m[1]) <= MAX_PRICE) {
+    out.price = toNumber(m[1]); priceIdx = m.index;
+  } else {
+    const re = new RegExp(NUM, 'g'); let last = null, x;
+    while ((x = re.exec(work)) !== null) {
+      const n = toNumber(x[1]);
+      if (n >= MIN_PRICE && n <= MAX_PRICE) last = { n, index: x.index };
+    }
+    if (last) { out.price = last.n; priceIdx = last.index; }
+  }
+  if (priceIdx >= 0) out.name = cleanName(work.slice(0, priceIdx));
+  return out;
 }
 
-// Скрыть товар: в подписи фото есть «#нет», «#скрыть» или «нет в наличии».
-function isHidden(text) {
-  return /(#нет|#скрыть|нет в наличии)/i.test(String(text || ''));
-}
+function parsePrice(text) { return parseCaption(text).price; }
+function parseName(text) { return parseCaption(text).name; }
+function isHidden(text) { return HIDE_RE.test(String(text || '')); }
 
 function pickBig(sizes) {
   const by = {}; (sizes || []).forEach(s => { by[s.type] = s.url; });
@@ -86,13 +126,14 @@ exports.handler = async () => {
       for (let offset = 0; offset < 3000; offset += 1000) {
         const r = await call('photos.get', { owner_id: owner, album_id: a.id, count: 1000, offset, rev: 1 });
         for (const ph of r.items || []) {
-          if (isHidden(ph.text)) { hidden++; continue; } // хозяйка скрыла товар пометкой в подписи
-          const price = parsePrice(ph.text);
-          if (price === null) { skipped++; continue; } // без цены в подписи не показываем
+          const cap = parseCaption(ph.text);
+          if (cap.hidden) { hidden++; continue; } // хозяйка скрыла товар пометкой в подписи
+          if (cap.price === null) { skipped++; continue; } // без цены в подписи не показываем
           products.push({
             id: 'p' + ph.id,
-            name: parseName(ph.text) || 'Арт. ' + String(ph.id).slice(-6),
-            price,
+            name: cap.name || ('Арт. ' + (cap.sku || String(ph.id).slice(-6))),
+            sku: cap.name && cap.sku ? cap.sku : '',
+            price: cap.price,
             cat: a.title,
             img: pickImg(ph.sizes),
             big: pickBig(ph.sizes),
@@ -118,6 +159,7 @@ exports.handler = async () => {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: e.message, vk: e.vk || null }) };
   }
 };
+exports.parseCaption = parseCaption;
 exports.parsePrice = parsePrice;
 exports.parseName = parseName;
 exports.isHidden = isHidden;
