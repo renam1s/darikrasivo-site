@@ -67,6 +67,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pic{display:block;width:100%;padding:0;border:0;aspect-ratio:4/5;background:var(--lilac);overflow:hidden;cursor:zoom-in}
 .pic img{width:100%;height:100%;object-fit:cover}
 .name{margin:11px 0 2px;font-size:15px;line-height:1.35;flex:1}
+.sku{display:block;margin-top:2px;font-size:13px;color:var(--muted)}
+.vklink{display:inline-block;margin:0 0 6px;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+.vklink:hover{color:var(--violet)}
 .price{margin:6px 0 11px;font-size:18px;font-weight:600}
 .buy{height:44px;width:100%;border:0;background:var(--violet);color:#fff;cursor:pointer;border-radius:2px;font-size:15px}
 .buy:hover{background:var(--violet-dark)}
@@ -139,7 +142,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .lb-x{align-self:flex-end;padding:8px 14px}
 .hint{font-size:13px;color:var(--muted);margin:12px 0 0}
 [hidden]{display:none!important}
-.search{margin:0 0 14px}.search input{width:100%;max-width:420px;padding:12px 14px;border:1px solid #d9cde6;border-radius:10px;font:inherit;background:#fff}
+.search{margin:18px 0 0}.search input{width:100%;max-width:360px;height:44px;padding:0 12px;border:1px solid #cbb8d6;border-radius:2px;font:inherit;background:#fff}
 </style>
 </head>
 <body>
@@ -170,7 +173,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 <main>
   <section class="wrap" id="catalog">
     <h2 class="sr">Каталог</h2>
-    <div class="search"><input type="search" id="q" placeholder="Поиск по названию" aria-label="Поиск по названию" autocomplete="off"></div>
+    <div class="search" id="searchBox" hidden><input type="search" id="q" placeholder="Поиск по названию" aria-label="Поиск по названию" autocomplete="off"></div>
     <div class="chips" id="chips" role="group" aria-label="Разделы каталога"></div>
     <div class="grid" id="grid"></div>
   </section>
@@ -237,7 +240,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Фото товара">
   <div class="lb-bg" id="lbBg"></div>
-  <figure class="lb-in"><img id="lbImg" alt=""><figcaption id="lbCap"></figcaption><button class="x lb-x" type="button" id="lbX">Закрыть</button></figure>
+  <figure class="lb-in"><img id="lbImg" alt=""><figcaption><span id="lbCap"></span> <a id="lbVk" class="vklink" target="_blank" rel="noopener" hidden>Смотреть в ВК</a></figcaption><button class="x lb-x" type="button" id="lbX">Закрыть</button></figure>
 </div>
 
 <div class="bar" id="bar">
@@ -318,6 +321,8 @@ var CAT_ORDER=['Букеты','Цветочные композиции','Под�
 
 /* Товары. img: ссылка на файл (img/название.jpg) или data-адрес. */
 var PRODUCTS=[];
+/* Поиск по названию появляется, когда у стольких букетов в подписях уже есть названия. */
+var SEARCH_MIN_NAMES=10;
 var loadState='loading';
 
 /* ---------- Вспомогательное ---------- */
@@ -386,7 +391,10 @@ function renderGrid(){
     var card=el('article','card');
     var pic=el('button','pic');pic.type='button';pic.setAttribute('aria-label','Увеличить фото');pic.addEventListener('click',function(){openLb(p)});var im=el('img');im.src=p.img;im.alt=p.name;im.loading='lazy';im.decoding='async';im.referrerPolicy='no-referrer';pic.appendChild(im);
     card.appendChild(pic);
-    card.appendChild(el('h3','name',p.name)).style.fontWeight='400';
+    var nm=el('h3','name',p.name);nm.style.fontWeight='400';
+    if(p.sku){nm.appendChild(el('span','sku','Арт. '+p.sku))}
+    card.appendChild(nm);
+    if(p.link){var vk=el('a','vklink','Смотреть в ВК');vk.href=p.link;vk.target='_blank';vk.rel='noopener';vk.setAttribute('aria-label','Открыть фото «'+p.name+'» в ВКонтакте');card.appendChild(vk)}
     card.appendChild(el('div','price',money(p.price)));
     var slot=el('div','slot');slot.setAttribute('data-id',p.id);card.appendChild(slot);
     grid.appendChild(card);
@@ -414,7 +422,7 @@ function renderSlots(){
 }
 
 /* ---------- Увеличение фото ---------- */
-function openLb(p){$('#lbImg').src=p.big||p.img;$('#lbImg').alt=p.name;$('#lbCap').textContent=p.name+', '+money(p.price);$('#lb').hidden=false;$('#lbX').focus()}
+function openLb(p){$('#lbImg').src=p.big||p.img;$('#lbImg').alt=p.name;$('#lbCap').textContent=p.name+', '+money(p.price);var lv=$('#lbVk');if(lv){if(p.link){lv.href=p.link;lv.hidden=false}else lv.hidden=true}$('#lb').hidden=false;$('#lbX').focus()}
 function closeLb(){$('#lb').hidden=true;$('#lbImg').removeAttribute('src')}
 $('#lbBg').addEventListener('click',closeLb);$('#lbX').addEventListener('click',closeLb);
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#lb').hidden)closeLb()});
@@ -526,6 +534,8 @@ fetch('/.netlify/functions/catalog').then(function(r){return r.json()}).then(fun
   PRODUCTS.length=0;d.products.forEach(function(p){PRODUCTS.push(p)});
   if(d.albums)CAT_ORDER=d.albums.concat(['Другое']);
   activeCat='Все';renderChips();renderGrid();refresh();
+  var named=PRODUCTS.filter(function(p){return p.name&&p.name.indexOf('Арт.')!==0}).length;
+  $('#searchBox').hidden=named<SEARCH_MIN_NAMES;
 }).catch(function(){loadState='error';renderGrid()});
 })();
 </script>
