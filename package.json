@@ -1,0 +1,9 @@
+{
+  "name": "darikrasivo-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Сайт «Дари Красиво»: каталог из ВК и приём заказов",
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}
