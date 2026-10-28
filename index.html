@@ -144,6 +144,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hint{font-size:13px;color:var(--muted);margin:12px 0 0}
 [hidden]{display:none!important}
 .search{margin:18px 0 0}.search input{width:100%;max-width:360px;height:44px;padding:0 12px;border:1px solid #cbb8d6;border-radius:2px;font:inherit;background:#fff}
+.notice{margin:14px 0 0;padding:12px 16px;background:#fff4d6;border-left:4px solid #e0a800;color:#4a3a00;font-size:15px}
 </style>
 </head>
 <body>
@@ -171,6 +172,8 @@ button,input,select,textarea{font:inherit;color:inherit}
   <a href="#contacts">Контакты</a>
 </nav></div>
 
+<div class="wrap"><p class="notice" id="notice" role="status" hidden></p></div>
+
 <main>
   <section class="wrap" id="catalog">
     <h2 class="sr">Каталог</h2>
@@ -181,7 +184,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
   <section class="sec" id="about"><div class="wrap cols">
     <h2>О магазине</h2>
-    <div class="text">
+    <div class="text" id="aboutText">
       <p>Салон цветов, шаров, подарков и товаров для праздника «Дари Красиво».</p>
       <p>Всегда в наличии:</p>
       <ul style="margin:0 0 .9em;padding-left:1.2em">
@@ -199,13 +202,13 @@ button,input,select,textarea{font:inherit;color:inherit}
   <section class="sec" id="delivery"><div class="wrap">
     <h2>Доставка и оплата</h2>
     <dl class="facts">
-      <div><dt>Доставка</dt><dd>
+      <div><dt>Доставка</dt><dd id="dlvText">
         <p>Доставка заказов осуществляется ежедневно с 10:00 до 20:00.</p>
         <p>Время доставки от 40 минут с момента оплаты заказа. Заказы в отдалённые районы могут занимать больше времени. Точную информацию уточняйте у менеджера.</p>
-        <p>Стоимость доставки зависит от района: Октябрьский район 300 ₽, Свердловский 450 ₽, Куйбышевский 490 ₽, Ленинский 690 ₽, Иркутский район от 500 ₽. Точную стоимость и время менеджер подтверждает при оформлении заказа.</p>
+        <p id="delPrices">Стоимость доставки зависит от района: Октябрьский район 300 ₽, Свердловский 450 ₽, Куйбышевский 490 ₽, Ленинский 690 ₽, Иркутский район от 500 ₽. Точную стоимость и время менеджер подтверждает при оформлении заказа.</p>
         <p>Доставим по номеру телефона: если вы не знаете адрес получателя, мы уточним его сами, согласуем место и время вручения букета.</p>
       </dd></div>
-      <div><dt>Оплата</dt><dd>
+      <div><dt>Оплата</dt><dd id="payText">
         <p>При самовывозе из нашего салона: наличные, картой по терминалу, QR-код.</p>
         <p>Интернет-заказы (после подтверждения заказа): QR-код, по ссылке через СБП, переводом.</p>
       </dd></div>
@@ -376,6 +379,8 @@ function setQty(id,q){orderDone=false;if(q<=0)delete cart[id];else cart[id]=q;cl
 
 /* ---------- Каталог ---------- */
 var activeCat='Все',limit=48,query='';
+var imgOk=0,pendingBroken=[];
+function dropBroken(p,card){p.broken=true;if(card.parentNode)card.parentNode.removeChild(card)}
 function cats(){
   var seen={};PRODUCTS.forEach(function(p){seen[p.cat]=1});
   var known=CAT_ORDER.filter(function(c){return seen[c]});
@@ -394,13 +399,14 @@ function renderChips(){
 }
 function renderGrid(){
   var grid=$('#grid');grid.textContent='';
-  var items=PRODUCTS.filter(function(p){return (activeCat==='Все'||p.cat===activeCat)&&(!query||p.name.toLowerCase().indexOf(query)>-1)});
+  var items=PRODUCTS.filter(function(p){return !p.broken&&(activeCat==='Все'||p.cat===activeCat)&&(!query||p.name.toLowerCase().indexOf(query)>-1)});
   if(!items.length){grid.appendChild(el('p','empty',loadState==='loading'?'Загружаем каталог…':query?'Ничего не нашли. Попробуйте другое слово или сбросьте поиск.':loadState==='error'?'Не удалось загрузить каталог. Обновите страницу или напишите нам в мессенджер.':'В этом разделе пока ничего нет.'));return}
   var more=items.length>limit;items=items.slice(0,limit);
   items.forEach(function(p){
     var card=el('article','card');
     var pic=el('button','pic');pic.type='button';pic.setAttribute('aria-label','Увеличить фото');pic.addEventListener('click',function(){openLb(p)});var im=el('img');im.src=p.img;im.alt=p.name;im.loading='lazy';im.decoding='async';im.referrerPolicy='no-referrer';
-    im.onerror=function(){if(!im.getAttribute('data-retry')&&p.big&&p.big!==p.img){im.setAttribute('data-retry','1');im.src=p.big;return}im.onerror=null;im.remove();pic.classList.add('nophoto');pic.appendChild(el('span','','Фото не загрузилось'))};
+    im.onload=function(){imgOk++;if(imgOk===1&&pendingBroken.length){pendingBroken.forEach(function(x){dropBroken(x[0],x[1])});pendingBroken=[]}};
+    im.onerror=function(){if(!im.getAttribute('data-retry')&&p.big&&p.big!==p.img){im.setAttribute('data-retry','1');im.src=p.big;return}im.onerror=null;im.remove();if(imgOk>0){dropBroken(p,card)}else{pic.classList.add('nophoto');pic.appendChild(el('span','','Фото не загрузилось'));pendingBroken.push([p,card])}};
     pic.appendChild(im);
     card.appendChild(pic);
     var nm=el('h3','name',p.name);nm.style.fontWeight='400';
@@ -459,7 +465,7 @@ function renderCart(){
   var d=delivery();var sum=$('#sum');sum.textContent='';
   function row(a,b,cls){var r=el('div',cls||'');r.appendChild(el('span','',a));r.appendChild(el('span','',b));sum.appendChild(r)}
   row('Товары',money(total()));
-  var dTxt=!d.ship?'без доставки':(d.price===null?(d.from?'от '+money(d.from)+', уточним':'стоимость уточним'):money(d.price));
+  var dTxt=!d.ship?'без доставки':(d.price===null?(d.from?'от '+money(d.from)+', уточним':'стоимость уточним'):(d.price===0?'бесплатно':money(d.price)));
   row('Доставка',dTxt);
   row(d.ship&&d.price===null?'Итого без доставки':'Итого',money(total()+(d.price||0)),'tot');
   $('#fAddrBox').hidden=!d.ship;
@@ -493,7 +499,7 @@ function orderText(){
   var d=delivery(),L=['Заказ с сайта «Дари Красиво»',''];
   Object.keys(cart).forEach(function(id){var p=byId(id);if(p)L.push(p.name+' × '+cart[id]+' = '+money(p.price*cart[id])+(p.link?' '+p.link:''))});
   L.push('');L.push('Товары: '+money(total()));
-  L.push('Получение: '+d.name+(d.ship&&d.price===null?' (стоимость доставки '+(d.from?'от '+money(d.from)+', ':'')+'уточним)':(d.ship?' ('+money(d.price)+')':'')));
+  L.push('Получение: '+d.name+(d.ship&&d.price===null?' (стоимость доставки '+(d.from?'от '+money(d.from)+', ':'')+'уточним)':(d.ship?' ('+(d.price===0?'бесплатно':money(d.price))+')':'')));
   if(d.ship){
     var rn=$('#fRName').value.trim(),rtel=$('#fRTel').value.trim(),ad=$('#fAddr').value.trim();
     if(rn||rtel)L.push('Получатель: '+[rn,rtel].filter(Boolean).join(', '));
@@ -531,7 +537,7 @@ $('#send').addEventListener('click',function(){
     .then(function(r){return r.json()})
     .then(function(d){if(!d||!d.ok)throw new Error('no');cart={};orderDone=true;save();refresh()})
     .catch(function(){$('#err').textContent='Не получилось отправить заказ. Попробуйте ещё раз или отправьте его через Telegram.';$('#tgAlt').hidden=false})
-    .then(function(){btn.disabled=false;btn.textContent='Отправить заказ'});
+    .then(function(){btn.disabled=false;btn.textContent='Отправить заказ';applyPaused()});
 });
 $('#tgAlt').addEventListener('click',function(){if(valid())viaTelegram()});
 $('#doneX').addEventListener('click',function(){orderDone=false;closeCart();renderCart()});
@@ -542,6 +548,65 @@ $('#copy').addEventListener('click',function(){
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,fallback)}else fallback();
   function fallback(){var t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();try{document.execCommand('copy');done()}catch(e){$('#err').textContent='Не удалось скопировать, отправьте заказ через Telegram.'}document.body.removeChild(t)}
 });
+
+/* ---------- Настройки из кабинета (/admin) ---------- */
+var paused=false,noticeText='';
+function zoneShort(d){return d.name.replace(/^Доставка:\s*/,'')}
+function priceLabel(d){if(d.price===0)return 'бесплатно';if(d.price===null)return d.from?'от '+money(d.from)+', уточним':'уточним';return money(d.price)}
+function renderDeliveryPrices(){
+  var p=$('#delPrices');if(!p)return;
+  var parts=DELIVERY.filter(function(d){return d.ship&&d.id!=='other'}).map(function(d){return zoneShort(d)+' '+priceLabel(d)});
+  p.textContent='Стоимость доставки зависит от района: '+parts.join(', ')+'. Точную стоимость и время менеджер подтверждает при оформлении заказа.';
+}
+function setRich(box,text,keepId){
+  var keep=keepId?document.getElementById(keepId):null;
+  if(keep&&keep.parentNode===box)box.removeChild(keep);
+  box.textContent='';
+  var ul=null;
+  String(text).split('\n').forEach(function(line){
+    line=line.trim();if(!line){ul=null;return}
+    if(line.indexOf('- ')===0){
+      if(!ul){ul=el('ul');ul.style.cssText='margin:0 0 .9em;padding-left:1.2em';box.appendChild(ul)}
+      ul.appendChild(el('li','',line.slice(2).trim()));return;
+    }
+    ul=null;box.appendChild(el('p','',line));
+  });
+  if(keep)box.appendChild(keep);
+}
+function applyPaused(){
+  var b=$('#send');
+  if(paused){
+    b.disabled=true;b.textContent='Сейчас заказы не принимаем';$('#tgAlt').hidden=true;
+    $('#hint').textContent=noticeText||'Сейчас мы не принимаем заказы. Загляните позже или напишите нам в мессенджер.';
+  }else if(b.disabled&&b.textContent==='Сейчас заказы не принимаем'){
+    b.disabled=false;b.textContent=CFG.orderUrl?'Отправить заказ':'Отправить заказ в Telegram';
+  }
+}
+function applySettings(s){
+  if(!s||typeof s!=='object')return;
+  var n=s.notice;
+  noticeText=(n&&n.on&&n.text)?String(n.text).slice(0,500):'';
+  var nb=$('#notice');nb.textContent=noticeText;nb.hidden=!noticeText;
+  paused=!!s.paused;
+  if(s.delivery&&typeof s.delivery==='object'){
+    DELIVERY.forEach(function(d){
+      var v=s.delivery[d.id];
+      if(!d.ship||d.id==='other'||!v||typeof v!=='object')return;
+      if(v.price===null||v.price===undefined||v.price===''){d.price=null;d.from=null;return}
+      var num=Number(v.price);if(!isFinite(num)||num<0||num>100000)return;
+      if(v.from){d.price=null;d.from=num}else{d.price=num;d.from=null}
+    });
+  }
+  var t=s.texts;
+  if(t&&typeof t==='object'){
+    if(t.about)setRich($('#aboutText'),String(t.about).slice(0,2500));
+    if(t.delivery)setRich($('#dlvText'),String(t.delivery).slice(0,2500),'delPrices');
+    if(t.payment)setRich($('#payText'),String(t.payment).slice(0,2500));
+  }
+  renderDeliveryPrices();refresh();applyPaused();
+}
+renderDeliveryPrices();
+fetch('/.netlify/functions/settings').then(function(r){return r.json()}).then(function(d){if(d&&d.settings)applySettings(d.settings)}).catch(function(){});
 
 /* ---------- Старт ---------- */
 renderChips();renderGrid();refresh();

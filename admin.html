@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Кабинет · Дари Красиво</title>
+<style>
+:root{--lilac:#f9e2ff;--ink:#241a2b;--muted:#6c6074;--line:#e6d7ed;--violet:#6a2c85;--violet-dark:#521f69;--bad:#a1243b;--ok:#1d6b3b}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#faf6fc;color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 90px}
+h1{margin:0 0 4px;font:400 28px/1.2 Georgia,"Times New Roman",serif}
+.sub{margin:0 0 22px;color:var(--muted)}
+.card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px 16px;margin:0 0 16px}
+.card h2{margin:0 0 4px;font-size:18px}
+.card p.hint{margin:0 0 12px;font-size:14px;color:var(--muted)}
+label.f{display:block;margin:0 0 12px;font-size:14px;font-weight:600}
+input[type=password],input[type=number],textarea{display:block;width:100%;margin-top:5px;padding:10px 12px;border:1px solid #cbb8d6;border-radius:4px;font:inherit;color:inherit;background:#fff}
+textarea{min-height:110px;resize:vertical}
+textarea.big{min-height:190px}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:0 0 10px;font-size:15px;font-weight:400}
+.chk input{margin-top:4px;width:18px;height:18px;flex:none}
+.zone{display:grid;grid-template-columns:1fr 130px auto;gap:10px;align-items:center;margin:0 0 10px}
+.zone span.n{font-size:15px}
+.zone input[type=number]{margin:0}
+.zone label{display:flex;gap:6px;align-items:center;font-size:14px;white-space:nowrap}
+@media(max-width:520px){.zone{grid-template-columns:1fr 110px}.zone label{grid-column:1/-1}}
+button{border:0;border-radius:4px;background:var(--violet);color:#fff;font:inherit;font-weight:600;padding:12px 20px;cursor:pointer}
+button:hover{background:var(--violet-dark)}
+button:disabled{opacity:.6;cursor:default}
+button.alt{background:#fff;color:var(--violet);border:1px solid var(--violet)}
+.msg{margin:12px 0 0;font-size:15px;min-height:1px}
+.msg.bad{color:var(--bad)}
+.msg.ok{color:var(--ok)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 16px}
+.bar .in{max-width:720px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar .msg{margin:0;flex:1 1 200px}
+[hidden]{display:none!important}
+a{color:var(--violet)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Кабинет</h1>
+  <p class="sub">Дари Красиво. Здесь можно поменять цены доставки, объявление и тексты на сайте. Товары и цены на букеты по-прежнему меняются в подписях к фото в ВК.</p>
+
+  <!-- Вход -->
+  <div class="card" id="login">
+    <h2>Вход</h2>
+    <p class="hint">Введите пароль от кабинета.</p>
+    <label class="f">Пароль
+      <input type="password" id="pass" autocomplete="current-password">
+    </label>
+    <button type="button" id="enter">Войти</button>
+    <p class="msg" id="loginMsg" role="alert"></p>
+  </div>
+
+  <!-- Редактор -->
+  <div id="editor" hidden>
+    <div class="card">
+      <h2>Объявление на сайте</h2>
+      <p class="hint">Показывается жёлтой полосой над каталогом. Например: «6 марта заказы принимаем до 15:00».</p>
+      <label class="chk"><input type="checkbox" id="noticeOn"><span>Показывать объявление</span></label>
+      <label class="f">Текст объявления
+        <textarea id="noticeText" maxlength="400" placeholder="Например: Сегодня заказы не принимаем"></textarea>
+      </label>
+      <label class="chk"><input type="checkbox" id="paused"><span>Сейчас не принимаем заказы (кнопка «Отправить заказ» на сайте будет отключена)</span></label>
+    </div>
+
+    <div class="card">
+      <h2>Цена доставки по районам</h2>
+      <p class="hint">Цена в рублях. 0 значит «бесплатно». Если оставить поле пустым, на сайте будет «стоимость уточним». Галочка «от» покажет цену как «от … ₽, уточним».</p>
+      <div id="zones"></div>
+    </div>
+
+    <div class="card">
+      <h2>Тексты на сайте</h2>
+      <p class="hint">Каждая строка станет отдельным абзацем. Строка, которая начинается с «- » (дефис и пробел), станет пунктом списка. Если очистить поле, на сайте вернётся исходный текст.</p>
+      <label class="f">О магазине
+        <textarea class="big" id="tAbout"></textarea>
+      </label>
+      <label class="f">Доставка (цены по районам добавятся на сайте сами, их здесь писать не нужно)
+        <textarea class="big" id="tDelivery"></textarea>
+      </label>
+      <label class="f">Оплата
+        <textarea id="tPayment"></textarea>
+      </label>
+    </div>
+
+    <p class="hint" style="text-align:center"><a href="/" target="_blank" rel="noopener">Открыть сайт</a>. Изменения появятся на сайте в течение пары минут, обновите страницу сайта.</p>
+  </div>
+</div>
+
+<div class="bar" id="saveBar" hidden>
+  <div class="in">
+    <button type="button" id="save">Сохранить</button>
+    <p class="msg" id="saveMsg" role="status"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var API='/.netlify/functions/settings';
+/* Районы доставки: те же номера, что на сайте (DELIVERY в index.html). */
+var ZONES=[
+  {id:'okt',name:'Октябрьский район',price:300,from:false},
+  {id:'sver',name:'Свердловский район',price:450,from:false},
+  {id:'kui',name:'Куйбышевский район',price:490,from:false},
+  {id:'len',name:'Ленинский район',price:690,from:false},
+  {id:'irk',name:'Иркутский район',price:500,from:true}
+];
+var $=function(s){return document.querySelector(s)};
+var password='';
+var defaults={about:'',delivery:'',payment:''};
+
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
+function norm(t){return String(t||'').replace(/\r\n?/g,'\n').replace(/[ \t]+/g,' ').replace(/\n{2,}/g,'\n').trim()}
+
+/* Текст из блока сайта: абзацы и списки в строки */
+function domToText(container,skipId){
+  var out=[];
+  Array.prototype.forEach.call(container.children,function(n){
+    if(skipId&&n.id===skipId)return;
+    if(n.tagName==='UL'){Array.prototype.forEach.call(n.children,function(li){out.push('- '+li.textContent.replace(/\s+/g,' ').trim())});return}
+    var t=n.textContent.replace(/\s+/g,' ').trim();
+    if(t)out.push(t);
+  });
+  return out.join('\n\n');
+}
+
+function loadDefaults(){
+  return fetch('/',{cache:'no-store'}).then(function(r){return r.text()}).then(function(html){
+    var doc=new DOMParser().parseFromString(html,'text/html');
+    var a=doc.querySelector('#aboutText'),d=doc.querySelector('#dlvText'),p=doc.querySelector('#payText');
+    if(a)defaults.about=domToText(a);
+    if(d)defaults.delivery=domToText(d,'delPrices');
+    if(p)defaults.payment=domToText(p);
+  }).catch(function(){});
+}
+
+function buildZones(){
+  var box=$('#zones');box.textContent='';
+  ZONES.forEach(function(z){
+    var row=el('div','zone');
+    row.appendChild(el('span','n',z.name));
+    var inp=el('input');inp.type='number';inp.min='0';inp.max='100000';inp.step='10';inp.id='z_'+z.id;inp.setAttribute('aria-label','Цена, '+z.name);
+    row.appendChild(inp);
+    var lab=el('label');var cb=el('input');cb.type='checkbox';cb.id='zf_'+z.id;lab.appendChild(cb);lab.appendChild(document.createTextNode(' «от»'));
+    row.appendChild(lab);
+    box.appendChild(row);
+  });
+}
+
+function fill(s){
+  s=s||{};
+  var n=s.notice||{};
+  $('#noticeOn').checked=!!n.on;
+  $('#noticeText').value=n.text||'';
+  $('#paused').checked=!!s.paused;
+  var dl=s.delivery||{};
+  ZONES.forEach(function(z){
+    var v=dl[z.id];var price,from;
+    if(v){price=v.price;from=!!v.from}else{price=z.price;from=z.from}
+    $('#z_'+z.id).value=(price===null||price===undefined)?'':String(price);
+    $('#zf_'+z.id).checked=!!from;
+  });
+  var t=s.texts||{};
+  $('#tAbout').value=t.about||defaults.about;
+  $('#tDelivery').value=t.delivery||defaults.delivery;
+  $('#tPayment').value=t.payment||defaults.payment;
+}
+
+function collect(){
+  var delivery={};
+  ZONES.forEach(function(z){
+    var raw=$('#z_'+z.id).value.trim();
+    delivery[z.id]=raw===''?{price:null,from:false}:{price:Number(raw),from:$('#zf_'+z.id).checked};
+  });
+  function tx(id,def){var v=$(id).value;return norm(v)===norm(def)?'':v.trim()}
+  return {
+    notice:{on:$('#noticeOn').checked,text:$('#noticeText').value.trim()},
+    paused:$('#paused').checked,
+    delivery:delivery,
+    texts:{about:tx('#tAbout',defaults.about),delivery:tx('#tDelivery',defaults.delivery),payment:tx('#tPayment',defaults.payment)}
+  };
+}
+
+function post(obj){
+  return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}).then(function(r){
+    return r.json().catch(function(){return {}}).then(function(d){d.status=r.status;return d});
+  });
+}
+
+function loginMsg(t,cls){var m=$('#loginMsg');m.textContent=t;m.className='msg'+(cls?' '+cls:'')}
+function saveMsg(t,cls){var m=$('#saveMsg');m.textContent=t;m.className='msg'+(cls?' '+cls:'')}
+
+function enter(){
+  var p=$('#pass').value;
+  if(!p){loginMsg('Введите пароль.','bad');return}
+  var btn=$('#enter');btn.disabled=true;loginMsg('Проверяем…');
+  post({action:'login',password:p}).then(function(d){
+    if(d.status===401){loginMsg('Неверный пароль.','bad');return}
+    if(d.status===500){loginMsg('Кабинет ещё не настроен. Напишите Степану.','bad');return}
+    if(!d.ok){loginMsg('Не получилось войти. Попробуйте ещё раз.','bad');return}
+    password=p;
+    return Promise.all([loadDefaults(),fetch(API,{cache:'no-store'}).then(function(r){return r.json()}).catch(function(){return {}})]).then(function(res){
+      buildZones();fill((res[1]&&res[1].settings)||{});
+      $('#login').hidden=true;$('#editor').hidden=false;$('#saveBar').hidden=false;
+    });
+  }).catch(function(){loginMsg('Нет связи. Проверьте интернет и попробуйте ещё раз.','bad')})
+  .then(function(){btn.disabled=false});
+}
+
+function save(){
+  var btn=$('#save');btn.disabled=true;saveMsg('Сохраняем…');
+  post({password:password,settings:collect()}).then(function(d){
+    if(d.status===401){saveMsg('Пароль не подошёл. Обновите страницу и войдите снова.','bad');return}
+    if(!d.ok){saveMsg('Не удалось сохранить. Попробуйте ещё раз или напишите Степану.','bad');return}
+    saveMsg('Сохранено. На сайте всё обновится в течение пары минут.','ok');
+  }).catch(function(){saveMsg('Нет связи. Ничего не потеряно, нажмите «Сохранить» ещё раз.','bad')})
+  .then(function(){btn.disabled=false});
+}
+
+$('#enter').addEventListener('click',enter);
+$('#pass').addEventListener('keydown',function(e){if(e.key==='Enter')enter()});
+$('#save').addEventListener('click',save);
+})();
+</script>
+</body>
+</html>
