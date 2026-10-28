@@ -65,6 +65,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 @media(min-width:640px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:34px 20px}}
 .card{display:flex;flex-direction:column}
 .pic{display:block;width:100%;padding:0;border:0;aspect-ratio:4/5;background:var(--lilac);overflow:hidden;cursor:zoom-in}
+.nophoto{display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:13px;padding:12px}
 .pic img{width:100%;height:100%;object-fit:cover}
 .name{margin:11px 0 2px;font-size:15px;line-height:1.35;flex:1}
 .sku{display:block;margin-top:2px;font-size:13px;color:var(--muted)}
@@ -240,7 +241,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Фото товара">
   <div class="lb-bg" id="lbBg"></div>
-  <figure class="lb-in"><img id="lbImg" alt=""><figcaption><span id="lbCap"></span> <a id="lbVk" class="vklink" target="_blank" rel="noopener" hidden>Смотреть в ВК</a></figcaption><button class="x lb-x" type="button" id="lbX">Закрыть</button></figure>
+  <figure class="lb-in"><img id="lbImg" alt=""><figcaption><span id="lbCap"></span> <a id="lbVk" class="vklink" target="_blank" rel="noopener" hidden>Смотреть состав</a></figcaption><button class="x lb-x" type="button" id="lbX">Закрыть</button></figure>
 </div>
 
 <div class="bar" id="bar">
@@ -257,7 +258,8 @@ button,input,select,textarea{font:inherit;color:inherit}
       <button class="alt" type="button" id="toCatalog" style="width:100%">К каталогу</button>
     </div>
     <div id="done" hidden>
-      <p><b>Заказ принят.</b> Мы свяжемся с вами в ближайшее время, чтобы подтвердить заказ и прислать способ оплаты.</p>
+      <p><b>Заказ принят.</b> Мы свяжемся с Вами в ближайшее время для подтверждения заказа и уточнения способа оплаты.</p>
+      <p>Связаться с нами:<br><a href="tel:+79148804900">8-914-880-49-00</a> (Max, WhatsApp, Telegram)</p>
       <button class="alt" type="button" id="doneX" style="width:100%">Закрыть</button>
     </div>
     <div id="cartFull">
@@ -397,12 +399,14 @@ function renderGrid(){
   var more=items.length>limit;items=items.slice(0,limit);
   items.forEach(function(p){
     var card=el('article','card');
-    var pic=el('button','pic');pic.type='button';pic.setAttribute('aria-label','Увеличить фото');pic.addEventListener('click',function(){openLb(p)});var im=el('img');im.src=p.img;im.alt=p.name;im.loading='lazy';im.decoding='async';im.referrerPolicy='no-referrer';pic.appendChild(im);
+    var pic=el('button','pic');pic.type='button';pic.setAttribute('aria-label','Увеличить фото');pic.addEventListener('click',function(){openLb(p)});var im=el('img');im.src=p.img;im.alt=p.name;im.loading='lazy';im.decoding='async';im.referrerPolicy='no-referrer';
+    im.onerror=function(){if(!im.getAttribute('data-retry')&&p.big&&p.big!==p.img){im.setAttribute('data-retry','1');im.src=p.big;return}im.onerror=null;im.remove();pic.classList.add('nophoto');pic.appendChild(el('span','','Фото не загрузилось'))};
+    pic.appendChild(im);
     card.appendChild(pic);
     var nm=el('h3','name',p.name);nm.style.fontWeight='400';
     if(p.sku){nm.appendChild(el('span','sku','Арт. '+p.sku))}
     card.appendChild(nm);
-    if(p.link){var vk=el('a','vklink','Смотреть в ВК');vk.href=p.link;vk.target='_blank';vk.rel='noopener';vk.setAttribute('aria-label','Открыть фото «'+p.name+'» в ВКонтакте');card.appendChild(vk)}
+    if(p.link){var vk=el('a','vklink','Смотреть состав');vk.href=p.link;vk.target='_blank';vk.rel='noopener';vk.setAttribute('aria-label','Открыть фото «'+p.name+'» в ВКонтакте');card.appendChild(vk)}
     card.appendChild(el('div','price',money(p.price)));
     var slot=el('div','slot');slot.setAttribute('data-id',p.id);card.appendChild(slot);
     grid.appendChild(card);
